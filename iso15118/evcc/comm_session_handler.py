@@ -271,7 +271,7 @@ class CommunicationSessionHandler:
     def __init__(
         self,
         config: EVCCConfig,
-        iface: str,
+        interface_index: int,
         codec: IEXICodec,
         ev_controller: EVControllerInterface,
     ):
@@ -280,7 +280,7 @@ class CommunicationSessionHandler:
         self.tcp_client: TCPClient = None
         self.tls_client: bool = None
         self.config: EVCCConfig = config
-        self.iface: str = iface
+        self.interface_index: int= interface_index
         self.ev_controller: EVControllerInterface = ev_controller
         self.sdp_retries_number = SDP_MAX_REQUEST_COUNTER
         self._sdp_retry_cycles = self.config.sdp_retry_cycles
@@ -303,7 +303,7 @@ class CommunicationSessionHandler:
         async def __init__. Therefore, we need to create a separate async
         method to be our constructor.
         """
-        self.udp_client = UDPClient(self._rcv_queue, self.iface)
+        self.udp_client = UDPClient(self._rcv_queue, self.interface_index)
         self.list_of_tasks = [
             self.udp_client.start(),
             self.get_from_rcv_queue(self._rcv_queue),

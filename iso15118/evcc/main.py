@@ -24,7 +24,7 @@ async def main():
     evcc_config = await load_from_file(config.ev_config_file_path)
     await EVCCHandler(
         evcc_config=evcc_config,
-        iface=config.iface,
+        interface_index=config.interface_index,
         exi_codec=ExificientEXICodec(),
         ev_controller=SimEVController(evcc_config),
     ).start()
@@ -32,10 +32,15 @@ async def main():
 
 def run():
     try:
+        if sys.platform == 'win32':
+            # 在 Windows 上使用 Selector 事件循环
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.debug("EVCC program terminated manually")
 
 
 if __name__ == "__main__":
+    # windows获取接口索引值
+    # netsh interface ipv6 show interface
     run()

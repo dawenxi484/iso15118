@@ -17,12 +17,12 @@ class EVCCHandler(CommunicationSessionHandler):
     def __init__(
         self,
         evcc_config: EVCCConfig,
-        iface: str,
+        interface_index: int,
         exi_codec: IEXICodec,
         ev_controller: EVControllerInterface,
     ):
         CommunicationSessionHandler.__init__(
-            self, evcc_config, iface, exi_codec, ev_controller
+            self, evcc_config, interface_index, exi_codec, ev_controller
         )
 
     async def start(self):

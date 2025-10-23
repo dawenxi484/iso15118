@@ -32,16 +32,16 @@ class UDPClient(DatagramProtocol):
     https://docs.python.org/3/library/asyncio-protocol.html
     """
 
-    def __init__(self, session_handler_queue: asyncio.Queue, iface: str):
+    def __init__(self, session_handler_queue: asyncio.Queue, interface_index: int):
         self._session_handler_queue: asyncio.Queue = session_handler_queue
         # Indication whether or not the UDP client connection is open or closed
         self.started: bool = False
         self._rcv_queue: asyncio.Queue = asyncio.Queue()
         self._transport: Optional[DatagramTransport] = None
-        self.iface = iface
+        self.interface_index = interface_index
 
     @staticmethod
-    def _create_socket(iface: str) -> socket.socket:
+    def _create_socket(interface_index: int) -> socket.socket:
         """
         This method creates an IPv6 socket configured to send multicast datagrams
         """
@@ -64,7 +64,9 @@ class UDPClient(DatagramProtocol):
         # which interface it shall send its multicast packets. It can be seen
         # as the dual of bind(), in the server side, since bind() controls which
         # interface(s) the socket receives multicast packets from.
-        interface_index = socket.if_nametoindex(iface)
+        # interface_index = socket.if_nametoindex(iface)
+
+
         sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, interface_index)
 
         return sock
@@ -79,7 +81,7 @@ class UDPClient(DatagramProtocol):
         loop = asyncio.get_running_loop()
         self._transport, _ = await loop.create_datagram_endpoint(
             protocol_factory=lambda: self,
-            sock=self._create_socket(self.iface),
+            sock=self._create_socket(self.interface_index),
         )
 
     def connection_made(self, transport):
