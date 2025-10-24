@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Config:
-    iface: Optional[str] = None
+    interface_index: Optional[int] = None
     log_level: Optional[str] = None
     evse_controller: Type[EVSEControllerInterface] = None
     enforce_tls: bool = False
@@ -52,7 +52,9 @@ class Config:
             env_path = os.getcwd() + "/.env"
         env.read_env(path=env_path)  # read .env file, if it exists
 
-        self.iface = env.str("NETWORK_INTERFACE", default="eth0")
+        # self.iface = env.str("NETWORK_INTERFACE", default="eth0")
+
+        self.interface_index = env.int("NETWORK_INTERFACE_INDEX", default=0)
 
         self.log_level = env.str("LOG_LEVEL", default="INFO")
 

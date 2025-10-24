@@ -15,14 +15,15 @@ logger = logging.getLogger(__name__)
 
 class EVCCHandler(CommunicationSessionHandler):
     def __init__(
-        self,
-        evcc_config: EVCCConfig,
-        interface_index: int,
-        exi_codec: IEXICodec,
-        ev_controller: EVControllerInterface,
+            self,
+            evcc_config: EVCCConfig,
+            interface_index: int,
+            interface_name: str,
+            exi_codec: IEXICodec,
+            ev_controller: EVControllerInterface,
     ):
         CommunicationSessionHandler.__init__(
-            self, evcc_config, interface_index, exi_codec, ev_controller
+            self, evcc_config, interface_index, interface_name, exi_codec, ev_controller
         )
 
     async def start(self):

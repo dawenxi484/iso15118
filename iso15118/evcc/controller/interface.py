@@ -95,7 +95,7 @@ class EVControllerInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_evcc_id(self, protocol: Protocol, iface: str) -> str:
+    async def get_evcc_id(self, protocol: Protocol, interface_name: str) -> str:
         """
         Retrieves the EVCCID, which is a field of the SessionSetupReq. The structure of
         the EVCCID depends on the protocol version. In DIN SPEC 70121 and ISO 15118-2,
@@ -104,7 +104,7 @@ class EVControllerInterface(ABC):
 
         Args:
             protocol: The communication protocol, a member of the Protocol enum
-            iface (str): The network interface selected
+            interface_name (str): The network interface name
 
         Raises:
             InvalidProtocolError

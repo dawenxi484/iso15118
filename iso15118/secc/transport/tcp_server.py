@@ -3,7 +3,7 @@ import logging
 import socket
 from typing import Optional, Tuple
 
-from iso15118.shared.network import get_link_local_full_addr, get_tcp_port
+from iso15118.shared.network import get_link_local_full_addr, get_tcp_port, get_ipv6_link_local_by_index
 from iso15118.shared.notifications import TCPClientNotification
 from iso15118.shared.security import get_ssl_context
 
@@ -21,11 +21,11 @@ class TCPServer(asyncio.Protocol):
     # (host, port, flowinfo, scope_id)
     ipv6_address_host: str
 
-    def __init__(self, session_handler_queue: asyncio.Queue, iface: str) -> None:
+    def __init__(self, session_handler_queue: asyncio.Queue, interface_index: int) -> None:
         self._session_handler_queue: asyncio.Queue = session_handler_queue
         # The dynamic TCP port number in the range of (49152-65535)
         self.port: int = get_tcp_port()
-        self.iface: str = iface
+        self.interface_index: int = interface_index
         self.server: Optional[asyncio.Server] = None
         self.is_tls_enabled: bool = False
 
@@ -99,15 +99,21 @@ class TCPServer(asyncio.Protocol):
             # Allows address to be reused
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-            self.full_ipv6_address = await get_link_local_full_addr(
-                self.port, self.iface
-            )
-            self.ipv6_address_host = self.full_ipv6_address[0]
+            # self.full_ipv6_address = await get_link_local_full_addr(
+            #     self.port, self.iface
+            # )
+            self.full_ipv6_address = (
+                get_ipv6_link_local_by_index(self.interface_index), self.port, 0, self.interface_index)
+
+            # 分割字符串，取第一部分
+            pure_ipv6 = self.full_ipv6_address[0].split('%')[0]
+            self.ipv6_address_host = pure_ipv6
 
             # Bind the socket to the IP address and port for receiving
             # TCP packets
             try:
                 sock.bind(self.full_ipv6_address)
+
                 break
             except OSError as e:
                 # Once the max amount of retries has been reached, reraise the exception
@@ -133,7 +139,7 @@ class TCPServer(asyncio.Protocol):
 
         logger.info(
             f"{server_type} server started at "
-            f"address {self.ipv6_address_host}%{self.iface} and "
+            f"address {self.ipv6_address_host}%{self.interface_index} and "
             f"port {self.port}"
         )
 
@@ -151,7 +157,7 @@ class TCPServer(asyncio.Protocol):
             await self.server.wait_closed()
 
     async def __call__(
-        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+            self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
         """
         Callback for a new socket connection with the server.

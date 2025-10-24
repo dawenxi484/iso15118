@@ -43,33 +43,41 @@ class UDPClient(DatagramProtocol):
     @staticmethod
     def _create_socket(interface_index: int) -> socket.socket:
         """
-        This method creates an IPv6 socket configured to send multicast datagrams
+        在Windows上创建IPv6 UDP socket，修复参数错误
         """
-
-        # Initialise the socket for IPv6 datagrams
-        # Address family (determines network layer protocol, here IPv6)
-        # Socket type (datagram, determines transport layer protocol UDP)
+        # 创建IPv6 UDP socket
         sock = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
 
-        # Allows address to be reused
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            # 在Windows上，先绑定再设置选项可能更稳定
+            # 绑定到任意可用端口
+            sock.bind(("", 0))  # 绑定到任意端口
 
-        # The socket needs to be configured with a time-to-live value (TTL)
-        # for messages to 1 so they do not go past the local network segment.
-        ttl = struct.pack("@i", 1)
-        sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, ttl)
+            # 允许地址重用
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        # Restrict multicast operation to the given interface
-        # The IP_MULTICAST_IF or IPV6_MULTICAST_IF settings tell the socket
-        # which interface it shall send its multicast packets. It can be seen
-        # as the dual of bind(), in the server side, since bind() controls which
-        # interface(s) the socket receives multicast packets from.
-        # interface_index = socket.if_nametoindex(iface)
+            # 设置TTL - 使用正确的格式
+            # 在Windows上，IPV6_MULTICAST_HOPS需要整数而不是打包的字节
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, 1)
 
+            # 设置多播接口 - 确保使用正确的格式
+            # 在Windows上，IPV6_MULTICAST_IF需要打包的接口索引
+            sock.setsockopt(
+                socket.IPPROTO_IPV6,
+                socket.IPV6_MULTICAST_IF,
+                struct.pack("@I", interface_index)
+            )
 
-        sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_IF, interface_index)
+            # 设置socket为非阻塞模式
+            sock.setblocking(False)
 
-        return sock
+            logger.info(f"UDP客户端socket创建成功，接口索引: {interface_index}")
+            return sock
+
+        except Exception as e:
+            logger.error(f"创建UDP客户端socket失败: {e}")
+            sock.close()
+            raise
 
     async def start(self):
         """
@@ -165,8 +173,9 @@ class UDPClient(DatagramProtocol):
         getting a message from the queue and putting it back over and over
         until the time expires? We have to test that
         """
+        target_address = (SDP_MULTICAST_GROUP, SDP_SERVER_PORT, 0, self.interface_index)
         self._transport.sendto(
-            message.to_bytes(), (SDP_MULTICAST_GROUP, SDP_SERVER_PORT)
+            message.to_bytes(), target_address
         )
 
         logger.debug(f"Message sent: {message}")

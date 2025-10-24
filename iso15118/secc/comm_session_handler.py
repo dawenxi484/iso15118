@@ -206,7 +206,7 @@ class CommunicationSessionHandler:
         )
 
     async def start_session_handler(
-        self, iface: str, start_udp_server: Optional[bool] = True
+        self, interface_index: int, start_udp_server: Optional[bool] = True
     ):
         """
         This method is necessary, because python does not allow
@@ -216,14 +216,14 @@ class CommunicationSessionHandler:
         """
 
         if start_udp_server:
-            self.udp_server = UDPServer(self._rcv_queue, iface)
+            self.udp_server = UDPServer(self._rcv_queue, interface_index)
             udp_ready_event: asyncio.Event = asyncio.Event()
             self.status_event_list.append(udp_ready_event)
             self.list_of_tasks.append(self.udp_server.start(udp_ready_event))
         else:
-            logger.info(f"UDP server disabled on {iface}")
+            logger.info(f"UDP server disabled on interface_index: {interface_index}")
 
-        self.tcp_server = TCPServer(self._rcv_queue, iface)
+        self.tcp_server = TCPServer(self._rcv_queue, interface_index)
 
         self.list_of_tasks.extend(
             [
@@ -406,6 +406,7 @@ class CommunicationSessionHandler:
 
         port = self.tcp_server.port
         # convert IPv6 address from presentation to numeric format
+        logger.info(f"ipv6_address_host:{self.tcp_server.ipv6_address_host}")
         ipv6_bytes = socket.inet_pton(
             socket.AF_INET6, self.tcp_server.ipv6_address_host
         )

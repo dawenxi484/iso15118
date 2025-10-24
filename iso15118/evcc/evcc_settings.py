@@ -16,6 +16,7 @@ class Config:
     interface_index: Optional[int] = None
     log_level: Optional[str] = None
     ev_config_file_path: str = None
+    interface_name: str = None
 
     def load_envs(self, env_path: Optional[str] = None) -> None:
         """
@@ -36,6 +37,7 @@ class Config:
         # validate_nic(self.iface)
 
         self.interface_index = env.int("NETWORK_INTERFACE_INDEX", default=0)
+        self.interface_name = env.str("NETWORK_INTERFACE_NAME", default="以太网")
 
         self.log_level = env.str("LOG_LEVEL", default="INFO")
 

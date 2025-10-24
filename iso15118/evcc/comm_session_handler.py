@@ -75,12 +75,13 @@ class EVCCCommunicationSession(V2GCommunicationSession):
     """
 
     def __init__(
-        self,
-        transport: Tuple[StreamReader, StreamWriter],
-        session_handler_queue: asyncio.Queue,
-        evcc_config: EVCCConfig,
-        iface: str,
-        ev_controller: EVControllerInterface,
+            self,
+            transport: Tuple[StreamReader, StreamWriter],
+            session_handler_queue: asyncio.Queue,
+            evcc_config: EVCCConfig,
+            interface_index: int,
+            interface_name: str,
+            ev_controller: EVControllerInterface,
     ):
         # Need to import here to avoid a circular import error
         # pylint: disable=import-outside-toplevel
@@ -97,7 +98,8 @@ class EVCCCommunicationSession(V2GCommunicationSession):
         )
 
         self.config = evcc_config
-        self.iface = iface
+        self.interface_index = interface_index
+        self.interface_name = interface_name
         # The EV controller that implements the interface EVControllerInterface
         self.ev_controller = ev_controller
         # The authorization option (called PaymentOption in ISO 15118-2) the
@@ -269,18 +271,20 @@ class CommunicationSessionHandler:
     # pylint: disable=too-many-instance-attributes
 
     def __init__(
-        self,
-        config: EVCCConfig,
-        interface_index: int,
-        codec: IEXICodec,
-        ev_controller: EVControllerInterface,
+            self,
+            config: EVCCConfig,
+            interface_index: int,
+            interface_name: str,
+            codec: IEXICodec,
+            ev_controller: EVControllerInterface,
     ):
         self.list_of_tasks: List[Coroutine] = []
         self.udp_client: UDPClient = None
         self.tcp_client: TCPClient = None
         self.tls_client: bool = None
         self.config: EVCCConfig = config
-        self.interface_index: int= interface_index
+        self.interface_index: int = interface_index
+        self.interface_name: str = interface_name
         self.ev_controller: EVControllerInterface = ev_controller
         self.sdp_retries_number = SDP_MAX_REQUEST_COUNTER
         self._sdp_retry_cycles = self.config.sdp_retry_cycles
@@ -418,7 +422,7 @@ class CommunicationSessionHandler:
                 f"{host.compressed} at port {port} ..."
             )
             self.tcp_client = await TCPClient.create(
-                host, port, self._rcv_queue, is_tls, self.iface
+                host, port, self._rcv_queue, is_tls, self.interface_index
             )
             logger.info("TCP client connected")
         except Exception as exc:
@@ -432,7 +436,8 @@ class CommunicationSessionHandler:
             (self.tcp_client.reader, self.tcp_client.writer),
             self._rcv_queue,
             self.config,
-            self.iface,
+            self.interface_index,
+            self.interface_name,
             self.ev_controller,
         )
         # Overwriting is_tls field in EVCCCommunicationSession with the setting
@@ -502,7 +507,7 @@ class CommunicationSessionHandler:
             # The rationale behind this might be that the EV OEM trades convenience
             # (the EV driver can always charge) over security.
             if (not secc_signals_tls and self.config.enforce_tls) or (
-                secc_signals_tls and not self.config.use_tls
+                    secc_signals_tls and not self.config.use_tls
             ):
                 logger.error(
                     "Security mismatch, can't initiate communication session."

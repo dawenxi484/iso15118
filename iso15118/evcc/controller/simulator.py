@@ -108,7 +108,7 @@ from iso15118.shared.messages.iso15118_20.dc import (
     DynamicDCChargeLoopReqParams,
     ScheduledDCChargeLoopReqParams,
 )
-from iso15118.shared.network import get_nic_mac_address
+from iso15118.shared.network import get_nic_mac_address, get_mac_by_interface
 
 logger = logging.getLogger(__name__)
 
@@ -152,13 +152,13 @@ class SimEVController(EVControllerInterface):
     # |             COMMON FUNCTIONS (FOR ALL ENERGY TRANSFER MODES)             |
     # ============================================================================
 
-    async def get_evcc_id(self, protocol: Protocol, iface: str) -> str:
+    async def get_evcc_id(self, protocol: Protocol, interface_name: str) -> str:
         """Overrides EVControllerInterface.get_evcc_id()."""
 
         if protocol in (Protocol.ISO_15118_2, Protocol.DIN_SPEC_70121):
             try:
-                hex_str = get_nic_mac_address(iface)
-                return hex_str.replace(":", "").upper()
+                hex_str = get_mac_by_interface(interface_name)
+                return hex_str.replace("-", "").upper()
             except MACAddressNotFound as exc:
                 logger.warning(
                     "Couldn't determine EVCCID (ISO 15118-2) - "

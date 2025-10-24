@@ -30,7 +30,7 @@ class TCPClient(asyncio.Protocol):
         port: int,
         session_handler_queue: asyncio.Queue,
         is_tls: bool,
-        iface: str,
+        interface_index: int,
     ) -> "TCPClient":
         """
         TCPClient setup
@@ -42,8 +42,9 @@ class TCPClient(asyncio.Protocol):
         # which includes the scope id. This is why, in the next line,
         # we concatenate the host IP with the NIC defined with the
         # NETWORK_INTERFACE env
-        full_host_address = host.compressed + f"%{iface}"
 
+        full_host_address = host.compressed + f"%{interface_index}"
+        logger.info(f"create full_host_address:{full_host_address}")
         try:
             self.reader, self.writer = await asyncio.open_connection(
                 host=full_host_address,

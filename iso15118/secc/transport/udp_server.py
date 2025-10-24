@@ -38,9 +38,9 @@ class UDPServer(asyncio.DatagramProtocol):
     https://docs.python.org/3/library/asyncio-protocol.html
     """
 
-    def __init__(self, session_handler_queue: asyncio.Queue, iface: str):
+    def __init__(self, session_handler_queue: asyncio.Queue, interface_index: int):
         self.started: bool = False
-        self.iface = iface
+        self.interface_index = interface_index
         self._session_handler_queue: asyncio.Queue = session_handler_queue
         self._rcv_queue: asyncio.Queue = asyncio.Queue()
         self._transport: Optional[DatagramTransport] = None
@@ -107,6 +107,60 @@ class UDPServer(asyncio.DatagramProtocol):
 
         return sock
 
+    @staticmethod
+    async def _create_socket_in_window(interface_index: int) -> socket.socket:
+        # 创建IPv6 UDP socket
+        udp_socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        try:
+
+            # 设置socket选项
+            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+            # 绑定到所有IPv6地址和指定端口
+            udp_socket.bind(("", SDP_SERVER_PORT))
+
+            # 配置多播
+            # 加入多播组
+            multicast_group_bin = socket.inet_pton(socket.AF_INET6, SDP_MULTICAST_GROUP)
+            mreq = multicast_group_bin + struct.pack("@I", interface_index)
+
+            # 尝试不同的多播加入常量
+            try:
+                udp_socket.setsockopt(
+                    socket.IPPROTO_IPV6,
+                    socket.IPV6_JOIN_GROUP,
+                    mreq
+                )
+                logger.info("使用IPV6_JOIN_GROUP加入多播组")
+            except AttributeError:
+                IPV6_ADD_MEMBERSHIP = 12  # Windows标准值
+                udp_socket.setsockopt(
+                    socket.IPPROTO_IPV6,
+                    IPV6_ADD_MEMBERSHIP,
+                    mreq
+                )
+                logger.info("使用IPV6_ADD_MEMBERSHIP加入多播组")
+
+            # 设置多播接口
+            udp_socket.setsockopt(
+                socket.IPPROTO_IPV6,
+                socket.IPV6_MULTICAST_IF,
+                struct.pack("@I", interface_index)
+            )
+
+            # 设置多播环回
+            udp_socket.setsockopt(
+                socket.IPPROTO_IPV6,
+                socket.IPV6_MULTICAST_LOOP,
+                1
+            )
+            return udp_socket
+
+        except Exception as e:
+            # 如果配置失败，关闭socket并重新抛出异常
+            udp_socket.close()
+            raise RuntimeError(f"Failed to create and configure IPv6 socket: {e}")
+
     async def start(self, ready_event: asyncio.Event):
         """UDP server tasks to start"""
         # Get a reference to the event loop as we plan to use a low-level API
@@ -117,12 +171,12 @@ class UDPServer(asyncio.DatagramProtocol):
             # DatagramTransport is a subclass of BaseTransport,
             # which is not recognized by mypy
             lambda: self,
-            sock=await self._create_socket(self.iface),
+            sock=await self._create_socket_in_window(self.interface_index),
         )
 
         logger.info(
             "UDP server started at address "
-            f"{SDP_MULTICAST_GROUP}%{self.iface} "
+            f"{SDP_MULTICAST_GROUP} interface_index:{self.interface_index} "
             f"and port {SDP_SERVER_PORT}"
         )
         ready_event.set()

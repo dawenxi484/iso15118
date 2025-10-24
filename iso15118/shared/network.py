@@ -5,6 +5,7 @@ from ipaddress import IPv6Address
 from random import randint
 from typing import Tuple, Union
 
+import netifaces
 import psutil
 
 from iso15118.shared.exceptions import (
@@ -188,3 +189,133 @@ def get_nic_mac_address(nic: str) -> str:
         if addr.family == psutil.AF_LINK:
             return addr.address
     raise MACAddressNotFound(f"MAC not found for NIC {nic}")
+
+
+def get_ipv6_link_local_by_index(interface_index: int) -> str:
+    """
+    通过已知的接口索引获取IPv6链接本地地址
+
+    Args:
+        interface_index: 已知的网络接口索引
+
+    Returns:
+        IPv6链接本地地址字符串，如果找不到则返回None
+    """
+    try:
+        # 获取所有网络接口
+        interfaces = netifaces.interfaces()
+
+        for iface in interfaces:
+            # 获取接口的地址信息
+            addrs = netifaces.ifaddresses(iface)
+
+            # 检查是否有IPv6地址
+            if netifaces.AF_INET6 in addrs:
+                for addr_info in addrs[netifaces.AF_INET6]:
+                    addr = addr_info['addr']
+
+                    # 检查是否是链接本地地址
+                    if addr.lower().startswith('fe80:'):
+                        # 检查区域标识是否匹配我们的接口索引
+                        if f'%{interface_index}' in addr:
+                            return addr
+
+                        # 如果没有区域标识或者区域标识不匹配，检查是否可以通过其他方式匹配
+                        # 在某些情况下，Windows可能使用GUID而不是索引
+                        # 我们可以尝试获取接口的GUID并检查是否匹配
+                        try:
+                            # 尝试获取接口的GUID
+                            iface_guid = iface
+                            # 在Windows上，netifaces的接口标识通常是GUID
+                            # 我们可以尝试通过其他方法验证这个GUID是否对应我们的接口索引
+                            if _is_guid_matching_index(iface_guid, interface_index):
+                                # 如果匹配，返回这个地址（可能需要添加区域标识）
+                                if '%' not in addr:
+                                    addr = f"{addr}%{interface_index}"
+                                return addr
+                        except:
+                            # 如果GUID匹配检查失败，继续下一个地址
+                            continue
+
+        # 如果没有找到匹配的地址，返回None
+        return None
+
+    except Exception as e:
+        print(f"获取IPv6链接本地地址时出错: {e}")
+        return None
+
+
+def _is_guid_matching_index(guid: str, interface_index: int) -> bool:
+    """
+    检查GUID是否与接口索引匹配
+    这是一个辅助函数，实际实现可能需要更复杂的方法
+    """
+    try:
+        # 方法1: 使用netsh命令验证
+        import subprocess
+        import re
+
+        result = subprocess.run(
+            ["netsh", "interface", "ipv6", "show", "interfaces"],
+            capture_output=True, text=True, check=True
+        )
+
+        # 在输出中查找匹配的索引和GUID
+        current_index = None
+        for line in result.stdout.split('\n'):
+            # 查找接口索引
+            if 'Idx' in line:
+                match = re.search(r'Idx\s+:\s+(\d+)', line)
+                if match:
+                    current_index = int(match.group(1))
+
+            # 查找GUID
+            if current_index == interface_index and guid in line:
+                return True
+
+        return False
+
+    except Exception:
+        # 如果验证失败，返回False
+        return False
+
+
+def get_mac_by_index_netifaces(interface_index):
+    """使用psutil通过接口索引获取MAC地址"""
+    try:
+        # 获取所有网络接口地址信息
+        net_addrs = psutil.net_if_addrs()
+
+        for interface_name, addresses in net_addrs.items():
+            # 获取接口统计信息，其中包含接口索引
+            stats = psutil.net_if_stats()
+            if interface_name in stats:
+                # 检查索引是否匹配
+                if stats[interface_name].index == interface_index:
+                    # 查找MAC地址
+                    for addr in addresses:
+                        if addr.family == psutil.AF_LINK:  # MAC地址
+                            return addr.address
+        return None
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+
+def get_mac_by_interface(interface_name):
+    """获取指定网络接口的MAC地址"""
+    try:
+        net_if_addrs = psutil.net_if_addrs()
+        if interface_name in net_if_addrs:
+            for addr in net_if_addrs[interface_name]:
+                if addr.family == psutil.AF_LINK:
+                    return addr.address
+        return None
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+
+
+
