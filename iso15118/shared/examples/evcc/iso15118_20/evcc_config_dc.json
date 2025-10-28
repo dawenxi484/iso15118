@@ -6,5 +6,5 @@
 		"DC"
 	],
 	"isCertInstallNeeded": false,
-	"useTls": false
+	"useTls": true
 }
