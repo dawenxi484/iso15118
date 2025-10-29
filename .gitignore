@@ -113,6 +113,6 @@ venv.bak/
 !tests/sample_certs/*.der
 *.key
 *.p12
-iso15118/shared/pki/iso15118_2
-iso15118/shared/pki/iso15118_20
+# iso15118/shared/pki/iso15118_2
+# iso15118/shared/pki/iso15118_20
 /iso15118/shared/pki/pki-ext/
